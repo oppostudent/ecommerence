@@ -1,7 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    images:{
+    images: {
         unoptimized: true
+    },
+    // Force webpack instead of Turbopack
+    experimental: {
+        turbo: false
     }
 };
 
