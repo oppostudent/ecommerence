@@ -1,75 +1,98 @@
 import authSeller from "@/middlewares/authSeller";
 import { getAuth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { openai } from "@/configs/openai";
+import { genAI } from "@/configs/gemini";
 
-async function main(base64Image, mimeType) {
-  const messages = [
-    {
-      "role": "system",
-      "content": `
-          You are a product listing assistant for an e-commerce store. Your job is to analyze an image of a product generate structured data.
+async function generateProduct(base64Image, mimeType) {
 
-          Respond ONLY with raw JSON (no code block, no markdown, no explanation).
-          The JSON must strictly follow this schema:
+  // Remove base64 header if present
+  const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, "");
 
-          {
-          "name": string,            // Short product name
-          "description": string,     // Marketing-friendly description of the product
-          }
-        `,
-    },
-    {
-      "role": "user",
-      "content": [
-        {
-          "type": "text",
-          "text": "Analyze this image and return name + description.",
-        },
-        {
-          "type": "image_url",
-          "image_url": {
-            "url": `data:${mimeType};base64,${base64Image}`,
-          },
-        },
-      ],
-    },
-  ];
-  const response = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL,
-    messages,
+  const model = genAI.getGenerativeModel({
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
+    systemInstruction: `
+You are an AI product listing generator.
+
+Analyze the product image and generate structured JSON.
+
+Return ONLY valid JSON.
+
+Schema:
+{
+  "name": string,
+  "description": string
+}
+`
   });
-  const raw = response.choices[0].message.content;
 
-  // Remove ```json or ``` wrappers if present
-  const cleaned = raw.replace(/```json|```/g, "").trim();
-  let parsed;
+  const prompt =
+    "Generate a short product name and a professional ecommerce description.";
+
+  const imagePart = {
+    inlineData: {
+      data: cleanBase64,
+      mimeType: mimeType,
+    },
+  };
+
+  const result = await model.generateContent({
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: prompt }, imagePart],
+      },
+    ],
+    generationConfig: {
+      temperature: 0.4,
+      maxOutputTokens: 500,
+      responseMimeType: "application/json",
+    },
+  });
+
+  const text = result.response.text();
+
   try {
-    parsed = JSON.parse(cleaned);
+    return JSON.parse(text);
   } catch (error) {
-    throw new Error("Failed to parse JSON response from OpenAI");
+    console.error("Gemini raw output:", text);
+    throw new Error("AI returned invalid JSON");
   }
-  return parsed;
 }
 
 export async function POST(request) {
   try {
+
     const { userId } = getAuth(request);
+
     const isSeller = await authSeller(userId);
 
     if (!isSeller) {
-      return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Not authorized. Seller account required." },
+        { status: 401 }
+      );
     }
 
     const { base64Image, mimeType } = await request.json();
-    const result = await main(base64Image, mimeType);
 
-    return NextResponse.json({ ...result });
+    if (!base64Image || !mimeType) {
+      return NextResponse.json(
+        { error: "Missing image or mimeType" },
+        { status: 400 }
+      );
+    }
+
+    const result = await generateProduct(base64Image, mimeType);
+
+    return NextResponse.json(result);
+
   } catch (error) {
-    console.error(error);
+
+    console.error("Route Error:", error);
+
     return NextResponse.json(
-      { error: error.code || error.message },
-      { status: 400 }
+      { error: error.message },
+      { status: 500 }
     );
   }
 }
