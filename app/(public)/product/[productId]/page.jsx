@@ -1,6 +1,8 @@
 'use client'
 import ProductDescription from "@/components/ProductDescription";
 import ProductDetails from "@/components/ProductDetails";
+import AIRecommendations from "@/components/AIRecommendations";
+import AIReviewSummary from "@/components/AIReviewSummary";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
@@ -35,8 +37,21 @@ export default function Product() {
                 {/* Product Details */}
                 {product && (<ProductDetails product={product} />)}
 
+                {/* AI Review Summary */}
+                {product && product.rating?.length > 0 && (
+                    <AIReviewSummary productId={productId} />
+                )}
+
                 {/* Description & Reviews */}
                 {product && (<ProductDescription product={product} />)}
+
+                {/* AI Recommendations */}
+                {product && (
+                    <AIRecommendations 
+                        productId={productId} 
+                        title="You Might Also Like" 
+                    />
+                )}
             </div>
         </div>
     );
