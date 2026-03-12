@@ -1,7 +1,5 @@
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Uses Vercel AI Gateway - no API key needed for supported providers
-export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "dummy", // AI Gateway handles auth
-  baseURL: process.env.OPENAI_BASE_URL || "https://gateway.ai.cloudflare.com/v1/vercel/ai-gateway/openai"
-});
+// Google Gemini AI configuration
+export const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
+export const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
