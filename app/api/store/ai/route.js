@@ -36,7 +36,7 @@ async function main(base64Image, mimeType) {
     },
   ];
   const response = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL,
+    model: process.env.OPENAI_MODEL || "gpt-4o-mini",
     messages,
   });
   const raw = response.choices[0].message.content;
